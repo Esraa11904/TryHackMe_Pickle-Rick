@@ -1,12 +1,15 @@
 TryHackMe — Pickle Rick Writeup
+
 An authorized lab walkthrough covering web enumeration, command execution, privilege context, and ingredient discovery.
 
-Item	Details
-Platform	TryHackMe
-Room	Pickle Rick
-Difficulty	Easy
-Target	<MACHINE_IP>
-Room URL	https://tryhackme.com/room/picklerick
+
+Item	Details: Platform	TryHackMe
+
+Room	Pickle Rick : Difficulty	Easy
+
+Target:	<MACHINE_IP>
+
+Room URL: 	https://tryhackme.com/room/picklerick
 
 1.Port Scanning
 
