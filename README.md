@@ -122,6 +122,8 @@ Final ingredient: fleeb juice
 The three room questions were answered in the order the ingredients were discovered:
 
 #	Evidence Location	Answer
-1st ingredient	Sup3rS3cretPickl3Ingred.txt (web directory)	mr. meeseek hair
-2nd ingredient	/home/rick/second ingredients	1 jerry tear
-3rd (final) ingredient	/root/3rd.txt	fleeb juice
+1st ingredient 	Sup3rS3cretPickl3Ingred.txt  (web directory) 	mr. meeseek hair
+
+2nd ingredient	 /home/rick/second   	1 jerry tear
+
+3rd (final) ingredient 	/root/3rd.txt	 fleeb juice
