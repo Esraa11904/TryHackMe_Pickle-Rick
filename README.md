@@ -1,132 +1,174 @@
-TryHackMe — Pickle Rick Writeup
+# TryHackMe — Pickle Rick Writeup
 
-An authorized lab walkthrough covering web enumeration, command execution, privilege context, and ingredient discovery.
+A guided walkthrough of the TryHackMe *Pickle Rick* room, covering web recon, hidden-file discovery, gaining shell access through a command panel, and escalating to root to collect all three ingredients.
 
+| Item | Details |
+|---|---|
+| Platform | TryHackMe |
+| Room | Pickle Rick |
+| Difficulty | Easy |
+| Target | `<MACHINE_IP>` |
+| Room URL | https://tryhackme.com/room/picklerick |
 
-Item	Details: Platform	TryHackMe
+---
 
-Room	Pickle Rick : Difficulty	Easy
+## 1. Initial Scan
 
-Target:	<MACHINE_IP>
+I kicked things off with a standard Nmap scan to map out which TCP services were exposed on the box:
 
-Room URL: 	https://tryhackme.com/room/picklerick
-
-1.Port Scanning
-
-Start with a basic Nmap scan to identify reachable TCP services on the target:
-
-bash
+```bash
 nmap <MACHINE_IP>
+```
 
-<img width="1097" height="331" alt="image" src="https://github.com/user-attachments/assets/77c894c8-b238-4c46-81e1-d3fdd49610dd" />
-The scan identified two open ports: 22/tcp (SSH) and 80/tcp (HTTP). Since the challenge presents a web application, I prioritized the HTTP service for further investigation.
+![nmap scan results](https://github.com/user-attachments/assets/77c894c8-b238-4c46-81e1-d3fdd49610dd)
 
-2. Web
+Two ports came back open: **22/tcp (SSH)** and **80/tcp (HTTP)**. Since a web server was running, that became the obvious next stop.
 
-I opened the web application and inspected the HTML source. A developer comment exposed a username that could be used for authentication.
+---
 
-<img width="1905" height="956" alt="image" src="https://github.com/user-attachments/assets/996f33a8-9272-4251-8e9c-a22123fb2d32" />
+## 2. Web Recon
 
-Username: R1ckRul3s 
+### 2.1 Checking the Page Source
 
-Directory Brute-Forcing
+Loading the site and digging through its HTML turned up something useful — a leftover developer comment containing a username.
 
-I used Gobuster with PHP, HTML, and TXT extensions to identify resources not linked directly from the home page:
+![HTML source comment](https://github.com/user-attachments/assets/996f33a8-9272-4251-8e9c-a22123fb2d32)
 
+**Username found:** `R1ckRul3s`
 
+### 2.2 Brute-Forcing Hidden Paths
+
+Next, I ran Gobuster against the site looking for pages not linked anywhere on the homepage, targeting PHP, HTML, and TXT files:
+
+```bash
 gobuster dir -u http://<MACHINE_IP> -w /usr/share/wordlists/dirb/common.txt -x php,html,txt
+```
 
+![gobuster results](https://github.com/user-attachments/assets/a1cc8d10-777a-4ce5-9fc8-153a3523cba2)
 
-<img width="793" height="562" alt="image" src="https://github.com/user-attachments/assets/a1cc8d10-777a-4ce5-9fc8-153a3523cba2" />
+This surfaced `login.php`, `robots.txt`, and `portal.php`. Trying to hit `portal.php` directly bounced me (302) back to `login.php`, meaning that page sits behind authentication.
 
-The results included login.php, robots.txt, and portal.php. The 302 redirect from portal.php to login.php indicated that the command portal required authentication.
+### 2.3 A Look at robots.txt
 
-robots.txt
+Rather than the usual crawler rules, `robots.txt` held a lone string sitting by itself. Given the username already in hand, this looked like a likely password.
 
-I inspected robots.txt before attempting to log in. Instead of normal crawler directives, the file contained a standalone string, which I treated as a password candidate for the username discovered in the page source.
+![robots.txt contents](https://github.com/user-attachments/assets/a5886990-18d0-48c6-9e54-c9bffcced07b)
 
-<img width="871" height="283" alt="image" src="https://github.com/user-attachments/assets/a5886990-18d0-48c6-9e54-c9bffcced07b" />
+**Likely password:** `Wubbalubbadubdub`
 
-Password candidate: Wubbalubbadubdub
+---
 
-3. Authentication
+## 3. Logging In
 
-I submitted the discovered username and password on login.php. Authentication succeeded and the application redirected me to the command panel at portal.php.
+Using the username and password gathered above on `login.php` worked immediately, dropping me into the command portal at `portal.php`.
 
-Credentials: R1ckRul3s / Wubbalubbadubdub
+**Working credentials:** `R1ckRul3s` / `Wubbalubbadubdub`
 
-<img width="1911" height="838" alt="image" src="https://github.com/user-attachments/assets/3cc22bf3-fc21-46e4-8f1b-94be988315f7" />
+![Authenticated portal](https://github.com/user-attachments/assets/3cc22bf3-fc21-46e4-8f1b-94be988315f7)
 
-4. Command Execution & First Ingredient
+---
 
-The authenticated portal accepted operating-system commands. I first listed the contents of the current web directory:
+## 4. Getting Command Execution — First Ingredient
 
+The portal turned out to be a simple front-end for running shell commands. First step, look around the current directory:
+
+```bash
 ls
+```
 
-<img width="1803" height="599" alt="image" src="https://github.com/user-attachments/assets/a32abf46-4690-4744-a04c-a484c4bcceee" />
+![ls output](https://github.com/user-attachments/assets/a32abf46-4690-4744-a04c-a484c4bcceee)
 
-The listing revealed Sup3rS3cretPickl3Ingred.txt. I used less to display its contents:
+Sitting right there was `Sup3rS3cretPickl3Ingred.txt`. Reading it with `less` gave up the first ingredient:
 
-<img width="1510" height="395" alt="image" src="https://github.com/user-attachments/assets/58f304fd-cc78-4b4d-9b16-28fb61d7a59c" />
+![First ingredient file](https://github.com/user-attachments/assets/58f304fd-cc78-4b4d-9b16-28fb61d7a59c)
 
-First ingredient: mr. meeseek hair
+**Ingredient #1:** `mr. meeseek hair`
 
-5. Locating the Second Ingredient
+---
 
-After finding the first ingredient in the web directory, I enumerated the root filesystem and then followed the user directories under /home:
+## 5. Tracking Down the Second Ingredient
 
+With the first one in the bag, I moved on to exploring the wider filesystem, starting at root and working down into `/home`:
+
+```bash
 ls /
+```
 
-<img width="1500" height="657" alt="image" src="https://github.com/user-attachments/assets/4dffc37d-2268-44ee-888d-55202ddf1a23" />
+![root filesystem listing](https://github.com/user-attachments/assets/4dffc37d-2268-44ee-888d-55202ddf1a23)
 
-ls /home 
+```bash
+ls /home
+```
 
-<img width="1538" height="471" alt="image" src="https://github.com/user-attachments/assets/03421824-ae6e-4600-948c-474e5733fa97" />
+![home directory listing](https://github.com/user-attachments/assets/03421824-ae6e-4600-948c-474e5733fa97)
 
-ls /home/rick 
+```bash
+ls /home/rick
+```
 
-<img width="1539" height="319" alt="image" src="https://github.com/user-attachments/assets/1623a7bc-bedd-4d4b-a832-831c55272c84" />
+![rick's home directory](https://github.com/user-attachments/assets/1623a7bc-bedd-4d4b-a832-831c55272c84)
 
-The filename contains a space, so I enclosed it in double quotes to ensure the shell treated the complete name as one argument: 
+One of the files there had a space in its name, so I wrapped it in quotes to keep the shell from splitting it into separate arguments:
 
-less /home/rick/"second ingredients" 
+```bash
+less /home/rick/"second ingredients"
+```
 
-<img width="1683" height="368" alt="image" src="https://github.com/user-attachments/assets/abfa5e89-0756-4fac-90db-cabd22af4de3" />
+![Second ingredient file](https://github.com/user-attachments/assets/abfa5e89-0756-4fac-90db-cabd22af4de3)
 
-Second ingredient: 1 jerry tear
+**Ingredient #2:** `1 jerry tear`
 
-6. Privilege Context & Final Ingredient
+---
 
-Before accessing /root, I checked which operating-system account was executing commands through the web portal:
+## 6. Checking Privileges & Grabbing the Final Ingredient
 
+Before poking around `/root`, it was worth confirming which user context the web shell was actually running under:
+
+```bash
 whoami
+```
 
-<img width="1501" height="337" alt="image" src="https://github.com/user-attachments/assets/cca825ce-2f7c-4d73-9d57-5c5af8fb8431" />
+![whoami output](https://github.com/user-attachments/assets/cca825ce-2f7c-4d73-9d57-5c5af8fb8431)
 
-The output was www-data, confirming that commands were running as the restricted web-service account.
+Result: `www-data` — the standard low-privilege web server account.
 
-To determine whether this account could execute commands with elevated privileges, I tested access to root's home directory:
+To see whether that account had any elevated rights, I tried a simple sudo command against root's home folder:
 
+```bash
 sudo ls /root
+```
 
-<img width="1538" height="333" alt="image" src="https://github.com/user-attachments/assets/ffe3083a-89ef-4c50-9eec-e87f5f0ccbcf" />
+![sudo ls /root output](https://github.com/user-attachments/assets/ffe3083a-89ef-4c50-9eec-e87f5f0ccbcf)
 
-The command executed successfully without requesting a password, demonstrating that www-data had passwordless sudo access. (Note: a full sudo -l output was not captured, so the exact scope of the account's sudo permissions was not verified.)
+It ran instantly with no password prompt — `www-data` had **passwordless sudo access**. *(I didn't run a full `sudo -l`, so the complete list of allowed commands wasn't confirmed, but this one command was enough to reach root's files.)*
 
-The directory contained 3rd.txt, which I read with elevated privileges:
+Inside `/root` was `3rd.txt`, which I opened using the same elevated access:
+
+```bash
 sudo less /root/3rd.txt
+```
 
-<img width="1530" height="334" alt="image" src="https://github.com/user-attachments/assets/b208b6de-b395-413e-9b3b-c45bf04ee254" />
+![Final ingredient file](https://github.com/user-attachments/assets/b208b6de-b395-413e-9b3b-c45bf04ee254)
 
-Final ingredient: fleeb juice
+**Final ingredient:** `fleeb juice`
 
-7. Answer Summary
+---
 
-The three room questions were answered in the order the ingredients were discovered:
+## 7. Wrap-Up: All Three Ingredients
 
-#	Evidence Location	Answer
-1st ingredient 	Sup3rS3cretPickl3Ingred.txt  (web directory) 	mr. meeseek hair
+Here's a summary of where each ingredient was found and what it was:
 
-2nd ingredient	 /home/rick/second   	1 jerry tear
+| # | Found In | Ingredient |
+|---|---|---|
+| 1st | `Sup3rS3cretPickl3Ingred.txt` (web root) | `mr. meeseek hair` |
+| 2nd | `/home/rick/second ingredients` | `1 jerry tear` |
+| 3rd (final) | `/root/3rd.txt` | `fleeb juice` |
 
-3rd (final) ingredient 	/root/3rd.txt	 fleeb juice
+---
+
+## Lessons Learned
+
+- Never underestimate a quick look at page source — leftover comments are a common credential leak.
+- `robots.txt` isn't just for search engines; check it as part of standard recon.
+- Directory brute-forcing tools like Gobuster reliably surface pages that aren't linked in the UI.
+- Passwordless `sudo` for a service account is a serious misconfiguration — always run `sudo -l` to see the full picture of what's allowed.
